@@ -1,0 +1,18 @@
+server:
+  port: 80
+
+#thymeleaf start
+spring:
+  thymeleaf:
+    mode: HTML5
+    encoding: UTF-8
+    cache: false
+#thymeleaf end
+
+#自定义工程相关的配置
+my:
+  project:
+    nebula: E:\ui\QuasarDemos\nebula\
+    flyme: E:\ui\QuasarDemos\flyme\
+    buildTargetDir: E:\ui\H5UsersProjectTest\html\
+  platform: windows

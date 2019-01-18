@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<head>
+    <meta charset="utf-8"/>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+    <title>mpserver</title>
+    <meta name="description" content=""/>
+    <meta name="viewport" content="width=device-width"/>
+    <base href="/"/>
+    <link rel="stylesheet" type="text/css" href="/webjars/bootstrap/css/bootstrap.min.css"/>
+    <script type="text/javascript" src="/webjars/jquery/jquery.min.js"></script>
+    <script type="text/javascript" src="/webjars/bootstrap/js/bootstrap.min.js"></script>
+    <script type="text/javascript" src="/webjars/js-cookie/js.cookie.js"></script>
+    <script type="text/javascript" src="js/FileSaver.js"></script>
+</head>
+<body>
+<div class="container">
+    <nav class="navbar navbar-default navbar-fixed-top">
+        <div class="container-fluid">
+            <div class="navbar-header">
+                <a class="navbar-brand" href="#">小程序管理</a>
+            </div>
+            <div class="collapse navbar-collapse">
+                <ul class="nav navbar-nav">
+                    <li><a href="#" onclick="downloadZip()">下载</a> </li>
+                    <li><a href="#" onclick="upload()">上传</a></li>
+                    <li><a href="#" onclick="buildDist()">构建</a> </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+    <div id="jsonPanel" style="margin-top: 56px;" class="panel-group"></div>
+
+</div>
+
+<script type="text/javascript">
+    var container = document.getElementById('jsonPanel')
+    var data //保存初识的schema数据
+    //从服务端获取初始的schema数据
+    $.get("/schema",{
+        mpName: "mpvue-weui-1.0.3",
+        schemaName: "index"
+    }, function(responseData){
+        data = JSON.parse(responseData)
+        produceHtml(container, "jsonPanel", data , 0, '')
+    })
+
+    //data本身是object
+
+    function produceHtml(parentDiv, parentId, data, level, path){
+        var oldPath = path
+        //遍历data
+        for(var d_item in data){
+            path = oldPath
+            path += ","+d_item
+            if(typeof data[d_item]=='object'){
+                //是否是数组
+                if(data[d_item] instanceof Array){
+                    var div = document.createElement('div')
+                    div.style.padding='3px'
+                    div.className="panel panel-default"
+//                    div.id=d_item
+                    div.innerHTML = "<div class='panel-heading'><h"+(1+level)+" class='panel-title'><a data-toggle='collapse' data-parent='#"+parentId+"' href='#"+d_item+"'> "+d_item+"</a></h"+(1+level)+"></div>"
+                    var old2Path = path
+                    var div2Parent = document.createElement("div")
+                    div2Parent.className="panel-collapse collapse"
+                    div2Parent.id=""+d_item
+                    var div2ParentSub = document.createElement("div")
+                    div2ParentSub.className="panel-body"
+                    div.appendChild(div2Parent)
+                    div2Parent.appendChild(div2ParentSub)
+                    for(var i in data[d_item]){
+                        path = old2Path
+                        var div2 = document.createElement('div')
+                        //设置显示
+                        div2.style.backgroundColor = getColor() //随机颜色
+                        div2.style.padding='3px'
+                        //是数组，且存在元素，则判断元素是否是object。
+                        var current_item = data[d_item][i]
+                        path += ","+ i
+                        if(typeof  current_item== 'object'){
+                            produceHtml(div2, ""+d_item, current_item, level+1, path)
+                        }else{
+                            div2.className = "input-group"
+                            div2.innerHTML = "<span class='input-group-addon'>"+i+"</span><input class='form-control' value='"+current_item+"' path='"+path+"'/>"
+                        }
+                        div2ParentSub.appendChild(div2)
+                    }
+
+                    //根据是否是顶级div，判断是否添加更新按钮
+                    if(level==0){
+                        div.innerHTML += "<button onclick='updateItem("+d_item+")'>更新</button>"
+                        div.style.backgroundColor = getColor() //随机颜色
+                    }
+                    parentDiv.appendChild(div)
+                }else{//object对象
+                    var div = document.createElement('div')
+                    div.style.padding='3px'
+                    div.className="panel panel-default"
+//                    div.id=d_item
+//                    div.innerHTML = "<h"+(1+level)+">"+d_item+"</h"+(1+level)+">"
+                    div.innerHTML = "<div class='panel-heading'><h"+(1+level)+" class='panel-title'><a data-toggle='collapse' data-parent='#"+parentId+"' href='#"+d_item+"'> "+d_item+"</a></h"+(1+level)+"></div>"
+                    var divParent = document.createElement("div")
+                    divParent.className="panel-collapse collapse"
+                    divParent.id=""+d_item
+                    var divParentSub = document.createElement("div")
+                    divParentSub.className="panel-body"
+                    div.appendChild(divParent)
+                    divParent.appendChild(divParentSub)
+                    produceHtml(divParentSub,""+d_item, data[d_item], level+1, path)
+                    if(level==0){
+                        div.innerHTML += "<button onclick='updateItem("+d_item+")'>更新</button>"
+                        div.style.backgroundColor = getColor() //随机颜色
+                    }
+                    parentDiv.appendChild(div)
+                }
+
+            }else{
+                //此时可能是数字或字符串
+                var div = document.createElement('div')
+                div.className = "input-group"
+                div.innerHTML="<span class='input-group-addon'>"+d_item+"</span><input class='form-control' value='"+data[d_item]+"' path='"+path+"'/>"
+                parentDiv.appendChild(div)
+            }
+        }
+    }
+
+    function getColor(){
+        //定义字符串变量colorValue存放可以构成十六进制颜色值的值
+        var colorValue="0,1,2,3,4,5,6,7,8,9,a,b,c,d,e,f";
+        //以","为分隔符，将colorValue字符串分割为字符数组["0","1",...,"f"]
+        var colorArray = colorValue.split(",");
+        var color="#";//定义一个存放十六进制颜色值的字符串变量，先将#存放进去
+        //使用for循环语句生成剩余的六位十六进制值
+        for(var i=0;i<6;i++){
+            //colorArray[Math.floor(Math.random()*16)]随机取出
+            // 由16个元素组成的colorArray的某一个值，然后将其加在color中，
+            //字符串相加后，得出的仍是字符串
+            color+=colorArray[Math.floor(Math.random()*16)];
+        }
+        return color;
+    }
+
+    function updateItem(item){
+        var inputs = item.getElementsByTagName('input')
+
+        for(var i=0; i<inputs.length;i++){
+            var input = inputs[i]
+            var arr = input.getAttribute('path').split(',')
+            setValue(data, 1, arr, input.value)
+        }
+        alert("已更新")
+    }
+
+    /*根据arr的path动态设置object的值
+     使用示例：setValue(b,0,[2,'address',0,'home'], '新的home地址')
+     其中：b=[1,2,{'address':[{'home':'领秀慧谷C区','number':'00231'},{'company':'泰康','number':'00782'}],'phone':'15698764532'}, 3]
+     */
+    function setValue(a, start, arr, value){
+        if(arr.length-1>start){
+            setValue(a[arr[start]], start+1, arr, value)
+        }else{
+            a[arr[start]] = value
+        }
+    }
+    /*根据arr的path动态获取path中的object的值
+     使用示例：getValue(b,0,[2,'address',0,'home'])
+     以上等同于：b[2]["address"][0]["home"]
+     */
+    function getValue(a,start,arr){
+        if(arr.length-1>start){
+            return getValue(a[arr[start]],start+1,arr)
+        }else{
+            return a[arr[start]]
+        }
+    }
+
+    //上传
+    function upload(){
+        var updateData = {
+            "fileName": "index.js",
+            "data": JSON.stringify(data),
+            "mpName":"mpvue-weui-1.0.3"
+        }
+
+        $.post("/file/update", updateData, function (responseData, textStatus) {
+//            console.log(textStatus)
+            alert(responseData.message)
+        })
+    }
+
+    //下载更新后的js数据文件
+    function downloadZip(){
+//        var downloadData = "var data="+JSON.stringify(data)+"export default{data: data, computed: {word: function(){return 'Hello, world!'}}}	"
+//        downloadJsFile(downloadData)
+        window.location.href = "/file/download?mpName=mpvue-weui-1.0.3"
+    }
+
+    function buildDist(){
+        $.post("/file/build",{
+            "mpName":"mpvue-weui-1.0.3"
+        }, function(responseData, textStatus){
+//            console.log(responseData)
+            alert(responseData.message)
+        })
+    }
+
+    var downloadJsFile = function(data){
+        var file = new File([data], "index.js", {type: "application/javascript;charset=utf-8"})
+        saveAs(file)
+    }
+
+    /**
+     * 下载文件
+     */
+    var downloadTextFile = function(mobileCode) {
+
+        var file = new File([mobileCode], "手机号.txt", { type: "text/plain;charset=utf-8" });
+        saveAs(file);
+        console.log('文件以保存')
+    }
+</script>
+</body>
+</html>
